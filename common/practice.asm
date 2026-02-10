@@ -826,6 +826,35 @@ next_task_proxy:
 		jmp next_task
 
 PracticeTitleMenu:
+		; One-shot auto-start on boot.
+		lda WRAM_PracticeFlags
+		and #PF_AutoStartDone
+		bne @normal_menu
+		lda WRAM_PracticeFlags
+		ora #PF_AutoStartDone
+		sta WRAM_PracticeFlags
+
+		lda #7 ; world 8 (0-based)
+		sta WorldNumber
+		lda #3 ; level 4 (0-based)
+		sta LevelNumber
+
+		; Set rule 0743 for world 8-4 in both rulesets.
+		lda #0
+		sta WRAM_OrgRules+124
+		sta WRAM_LostRules+124
+		lda #7
+		sta WRAM_OrgRules+125
+		sta WRAM_LostRules+125
+		lda #4
+		sta WRAM_OrgRules+126
+		sta WRAM_LostRules+126
+		lda #3
+		sta WRAM_OrgRules+127
+		sta WRAM_LostRules+127
+
+		jmp next_task_proxy
+@normal_menu:
 		jsr WriteRulePointer
 		jsr draw_menu
 		lda JoypadBitMask
@@ -1516,7 +1545,7 @@ PracticeInit:
 		;
 		; sta WRAM_SaveStateBank
 		lda WRAM_PracticeFlags
-		and #((PF_SaveState|PF_LoadState|PF_RestartLevel|PF_LevelEntrySaved)^$ff)
+		and #((PF_SaveState|PF_LoadState|PF_RestartLevel|PF_LevelEntrySaved|PF_AutoStartDone)^$ff)
 		sta WRAM_PracticeFlags
 nosock:	jmp ReturnBank
 
@@ -2163,4 +2192,3 @@ EndOfCastle:
 		beq @is_end
 @exit:
 		jmp ReturnBank
-

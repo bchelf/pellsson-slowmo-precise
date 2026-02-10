@@ -105,6 +105,10 @@ dont_wipe_bank_selection:
 		inx
 		bne clear_memory
 
+		; Skip intro/menu entirely and boot straight into Original.
+		lda #BANK_ORG
+		jmp StartBank
+
 		lda #CHR_INTRO_SPR0
 		ldx #CHR_INTRO_BG
 		jsr SetChrBanksFromAX

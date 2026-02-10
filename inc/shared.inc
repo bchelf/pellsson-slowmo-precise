@@ -7,6 +7,7 @@ BANK_SELECTED = $07ff
 .define PF_LevelEntrySaved $10
 .define PF_DisablePracticeInfo $20
 .define PF_EnableInputDisplay $40
+.define PF_AutoStartDone $80
 
 .macro PF_SetToLevelEnd_A
 	lda WRAM_PracticeFlags
@@ -69,7 +70,7 @@ ThrowFrame:
 		sta PPU_CTRL_REG1
 
 		lda WRAM_SlowMotion
-		cmp #4
+		cmp #8
 		bne @done
 		;
 		; Latch controllers.
@@ -106,24 +107,69 @@ ThrowFrame:
 .endmacro
 
 .macro MACRO_RunSlowMo gm
+		lda WRAM_SlowMotion
+		beq @allow_frame_reset
+		cmp #8
+		beq @adv_mode
+		cmp #4
+		bcc @integer_mode
+		;
+		; Fractional modes: 60/70/80/90% (4..7)
+		;
+		lda WRAM_SlowMotionLeft
+		clc
+		adc #1
+		cmp #10
+		bne @store_idx
+		lda #0
+@store_idx:
+		sta WRAM_SlowMotionLeft
+		tax
+		lda #8
+		sec
+		sbc WRAM_SlowMotion
+		sta $03
+		cpx $03
+		bcc @maybe_throw_noreset
+		jmp @allow_frame_noreset
+@integer_mode:
+		ldy #1
 		dec WRAM_SlowMotionLeft
-		bmi @allow_frame
+		bmi @allow_frame_reset
+		jmp @maybe_throw
+@adv_mode:
+		ldy #1
+		jmp @maybe_throw
+@maybe_throw_noreset:
+		ldy #0
+@maybe_throw:
 		lda DisableScreenFlag
-		bne @allow_frame
+		bne @maybe_allow
 		lda GamePauseStatus
 		and #3
-		bne @allow_frame
+		bne @maybe_allow
 		ldx OperMode
 		dex
-		bne @allow_frame
+		bne @maybe_allow
 		lda OperMode_Task
 		cmp #gm
-		bne @allow_frame
+		bne @maybe_allow
 		jsr ThrowFrame
 		rti
-@allow_frame:
+@maybe_allow:
+		tya
+		beq @allow_frame_noreset
+@allow_frame_reset:
 		lda WRAM_SlowMotion
+		beq @store_reset
+		cmp #4
+		bcs @store_reset
+		lda #4
+		sec
+		sbc WRAM_SlowMotion
+@store_reset:
 		sta WRAM_SlowMotionLeft
+@allow_frame_noreset:
 .endmacro
 
 TITLE_INIT		= $01
@@ -170,4 +216,3 @@ CurrentRule = $7df
 .ifndef LOAD_STATE_BUTTONS
 	.define LOAD_STATE_BUTTONS Select_Button|Left_Dir
 .endif
-
